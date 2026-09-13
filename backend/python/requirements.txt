@@ -1,0 +1,4 @@
+opencv-python
+ultralytics
+PySide6
+requests

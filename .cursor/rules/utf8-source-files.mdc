@@ -1,0 +1,24 @@
+---
+description: Guardar código fuente siempre en UTF-8, nunca UTF-16
+alwaysApply: true
+---
+
+# Codificación UTF-8
+
+Todos los archivos de texto del repo (`.py`, `.json`, `.md`, etc.) deben ser UTF-8 sin BOM.
+
+No crear archivos con `echo >`, `Out-File` ni `Set-Content` en PowerShell: en Windows escriben UTF-16 y Python falla con `source code string cannot contain null bytes`.
+
+Para `__init__.py` vacío usar:
+
+```powershell
+New-Item -ItemType File -Path ruta\__init__.py -Force
+```
+
+o:
+
+```powershell
+python -c "open(r'ruta\\__init__.py', 'w', encoding='utf-8').close()"
+```
+
+Si un archivo tiene bytes nulos, reconvertirlo a UTF-8; no dejarlo en UTF-16.

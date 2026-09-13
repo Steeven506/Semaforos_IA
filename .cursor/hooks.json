@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "python .cursor/hooks/ensure_utf8.py"
+      }
+    ],
+    "afterTabFileEdit": [
+      {
+        "command": "python .cursor/hooks/ensure_utf8.py"
+      }
+    ],
+    "stop": [
+      {
+        "command": "python .cursor/hooks/ensure_utf8.py"
+      }
+    ]
+  }
+}

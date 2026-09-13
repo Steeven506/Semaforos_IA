@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebSocket - Traffic System</title>
+    <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #2d2d4a;
+        }
+        h1 { color: #6a9fb5; margin-bottom: 10px; }
+        .status {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status.connected { background: rgba(74, 165, 111, 0.2); color: #4ade80; border: 1px solid #4ade80; }
+        .status.disconnected { background: rgba(255, 51, 51, 0.2); color: #ff3333; border: 1px solid #ff3333; }
+        .controls {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #4a6fa5; color: white; }
+        .btn-primary:hover { background: #5a7fb5; }
+        .btn-success { background: #4aa56f; color: white; }
+        .btn-success:hover { background: #5ab57f; }
+        .btn-danger { background: #a54a4a; color: white; }
+        .btn-danger:hover { background: #b55a5a; }
+        .events-container {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #2d2d4a;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .events-container h2 {
+            color: #8ab4d6;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .event {
+            background: #12122a;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4a6fa5;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .event-title {
+            font-weight: bold;
+            color: #8ab4d6;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .event-time {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .event pre {
+            background: #0a0a1a;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #4ade80;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .event.detection-new { border-left-color: #4ade80; }
+        .event.stats-update { border-left-color: #60a5fa; }
+        .event.emergencia-new { border-left-color: #ff3333; }
+        .event.sensor-status { border-left-color: #fbbf24; }
+        .event.camera-status { border-left-color: #a78bfa; }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stat-box {
+            background: #12122a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #2d2d4a;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #6a9fb5;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #8ab4d6;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Test WebSocket - Traffic System</h1>
+        <p style="color: #8ab4d6; margin-bottom: 10px;">Prueba de eventos en tiempo real</p>
+        <span id="status" class="status disconnected">Desconectado</span>
+        <div class="controls">
+            <button class="btn-primary" onclick="joinGlobal()">Unirse a Global</button>
+            <button class="btn-success" onclick="requestStats()">Solicitar Estadisticas</button>
+            <button class="btn-danger" onclick="clearEvents()">Limpiar Eventos</button>
+        </div>
+    </div>
+
+    <div class="events-container">
+        <h2>Eventos en Tiempo Real</h2>
+        <div id="stats-container"></div>
+        <div id="events">
+            <div class="empty-state">Esperando eventos...</div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000');
+        const eventsDiv = document.getElementById('events');
+        const statusSpan = document.getElementById('status');
+        const statsContainer = document.getElementById('stats-container');
+        let eventCount = 0;
+
+        socket.on('connect', () => {
+            statusSpan.textContent = 'Conectado';
+            statusSpan.className = 'status connected';
+            console.log('Conectado al WebSocket');
+            joinGlobal();
+            requestStats();
+        });
+
+        socket.on('disconnect', () => {
+            statusSpan.textContent = 'Desconectado';
+            statusSpan.className = 'status disconnected';
+            console.log('Desconectado del WebSocket');
+        });
+
+        socket.on('detection:new', (data) => {
+            addEvent('detection-new', 'Nueva Deteccion', data);
+        });
+
+        socket.on('emergencia:new', (data) => {
+            addEvent('emergencia-new', 'Nueva Emergencia', data);
+        });
+
+        socket.on('stats:update', (data) => {
+            updateStats(data);
+            addEvent('stats-update', 'Estadisticas Actualizadas', data);
+        });
+
+        socket.on('sensor:status', (data) => {
+            addEvent('sensor-status', 'Estado de Sensor', data);
+        });
+
+        socket.on('camera:status', (data) => {
+            addEvent('camera-status', 'Estado de Camara', data);
+        });
+
+        socket.on('error', (data) => {
+            addEvent('emergencia-new', 'Error', data);
+        });
+
+        function addEvent(type, title, data) {
+            const emptyState = eventsDiv.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+
+            const div = document.createElement('div');
+            div.className = 'event ' + type;
+            
+            const now = new Date().toLocaleTimeString();
+            div.innerHTML = `
+                <div class="event-title">${title}</div>
+                <div class="event-time">${now}</div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            
+            eventsDiv.insertBefore(div, eventsDiv.firstChild);
+            eventCount++;
+        }
+
+        function updateStats(data) {
+            statsContainer.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value">${data.total_vehiculos || 0}</div>
+                        <div class="stat-label">Total Vehiculos</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${data.total_personas || 0}</div>
+                        <div class="stat-label">Personas</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${data.total_carros || 0}</div>
+                        <div class="stat-label">Carros</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${data.total_motos || 0}</div>
+                        <div class="stat-label">Motos</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${data.total_registros || 0}</div>
+                        <div class="stat-label">Registros</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function joinGlobal() {
+            socket.emit('join:global');
+            console.log('Unido a global');
+        }
+
+        function requestStats() {
+            socket.emit('request:stats', {});
+            console.log('Solicitando estadisticas');
+        }
+
+        function clearEvents() {
+            eventsDiv.innerHTML = '<div class="empty-state">Esperando eventos...</div>';
+            eventCount = 0;
+        }
+    </script>
+</body>
+</html>

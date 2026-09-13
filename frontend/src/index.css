@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-light-900 text-gray-900 transition-colors duration-300;
+  }
+  
+  .dark body {
+    @apply bg-dark-900 text-white;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white border border-gray-200 rounded-2xl transition-colors duration-300;
+  }
+  
+  .dark .glass-card {
+    @apply bg-dark-800/80 backdrop-blur-sm border-dark-700;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-500 to-green-500 bg-clip-text text-transparent;
+  }
+  
+  .dark .gradient-text {
+    @apply from-blue-400 to-green-400;
+  }
+  
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition;
+  }
+  
+  .btn-success {
+    @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition;
+  }
+  
+  .input-field {
+    @apply bg-white text-gray-900 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 w-full transition-colors duration-300;
+  }
+  
+  .dark .input-field {
+    @apply bg-dark-700 text-white border-dark-600;
+  }
+  
+  .text-primary {
+    @apply text-gray-900;
+  }
+  
+  .dark .text-primary {
+    @apply text-white;
+  }
+  
+  .text-secondary {
+    @apply text-gray-600;
+  }
+  
+  .dark .text-secondary {
+    @apply text-gray-400;
+  }
+  
+  .text-muted {
+    @apply text-gray-500;
+  }
+  
+  .dark .text-muted {
+    @apply text-gray-500;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2d2d4a transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2d2d4a;
+  border-radius: 8px;
+}
+
+.light *::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+.deuteranopia {
+  filter: hue-rotate(180deg);
+}
+
+.protanopia {
+  filter: hue-rotate(90deg);
+}
+
+.tritanopia {
+  filter: hue-rotate(270deg);
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 12px;
+  z-index: 1;
+}
+
+.dark .leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+.leaflet-popup-content-wrapper {
+  background: white;
+  color: #1f2937;
+  border-radius: 8px;
+}
+
+.dark .leaflet-popup-content-wrapper {
+  background: #1a1a2e;
+  color: #ffffff;
+}
+
+.dark .leaflet-popup-tip {
+  background: #1a1a2e;
+}
+
+.custom-marker {
+  background: transparent;
+  border: none;
+}
+
+.marker-pin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: #4a6fa5;
+  position: absolute;
+  transform: rotate(-45deg);
+  left: 50%;
+  top: 50%;
+  margin: -15px 0 0 -15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.marker-pin::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  margin: 8px 0 0 8px;
+  background: white;
+  position: absolute;
+  border-radius: 50%;
+}
+
+.marker-pin.semaforo {
+  background: #fbbf24;
+}
+
+.marker-pin.sensor {
+  background: #4ade80;
+}
+
+.marker-pin.camera {
+  background: #a78bfa;
+}
+
+.marker-pin.emergencia {
+  background: #ff3333;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: rotate(-45deg) scale(1); }
+  50% { transform: rotate(-45deg) scale(1.2); }
+}
