@@ -101,19 +101,6 @@ class ApiClient:
             print(f"Error eliminando camara: {e}")
             return False
 
-    def get_cameras_by_grupo(self, grupo_id):
-        try:
-            response = requests.get(
-                f"{self.base_url}/cameras/grupo/{grupo_id}",
-                headers=self._headers(),
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error obteniendo camaras del grupo: {e}")
-            return []
-
     # ==================== INTERSECCIONES ====================
 
     def get_intersections(self):
@@ -128,6 +115,19 @@ class ApiClient:
         except requests.exceptions.RequestException as e:
             print(f"Error obteniendo intersecciones: {e}")
             return []
+
+    def get_intersection(self, interseccion_id):
+        try:
+            response = requests.get(
+                f"{self.base_url}/intersections/{interseccion_id}",
+                headers=self._headers(),
+                timeout=5
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error obteniendo interseccion: {e}")
+            return None
 
     # ==================== GRUPOS ====================
 
@@ -144,12 +144,25 @@ class ApiClient:
             print(f"Error obteniendo grupos: {e}")
             return []
 
+    def get_grupo(self, grupo_id):
+        try:
+            response = requests.get(
+                f"{self.base_url}/grupos/{grupo_id}",
+                headers=self._headers(),
+                timeout=5
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error obteniendo grupo: {e}")
+            return None
+
     def get_grupos_by_intersection(self, interseccion_id):
         try:
             response = requests.get(
                 f"{self.base_url}/grupos/interseccion/{interseccion_id}",
                 headers=self._headers(),
-                timeout=10
+                timeout=5
             )
             response.raise_for_status()
             return response.json()
@@ -157,14 +170,22 @@ class ApiClient:
             print(f"Error obteniendo grupos: {e}")
             return []
 
-    def create_grupo(self, interseccion_id, nombre, descripcion, color_grupo, direccion):
+    def get_grupos_interseccion(self, interseccion_id):
+        return self.get_grupos_by_intersection(interseccion_id)
+
+    def create_grupo(self, interseccion_id, nombre, descripcion, color_grupo, direccion,
+                     tiempo_verde=30, tiempo_amarillo=5, tiempo_rojo=25, offset_segundos=0):
         try:
             payload = {
                 "interseccion_id": interseccion_id,
                 "nombre": nombre,
                 "descripcion": descripcion,
                 "color_grupo": color_grupo,
-                "direccion": direccion
+                "direccion": direccion,
+                "tiempo_verde": tiempo_verde,
+                "tiempo_amarillo": tiempo_amarillo,
+                "tiempo_rojo": tiempo_rojo,
+                "offset_segundos": offset_segundos
             }
             response = requests.post(
                 f"{self.base_url}/grupos",
@@ -178,7 +199,8 @@ class ApiClient:
             print(f"Error creando grupo: {e}")
             return None
 
-    def update_grupo(self, grupo_id, nombre, descripcion, color_grupo, direccion):
+    def update_grupo(self, grupo_id, nombre, descripcion, color_grupo, direccion,
+                     tiempo_verde=None, tiempo_amarillo=None, tiempo_rojo=None, offset_segundos=None):
         try:
             payload = {
                 "nombre": nombre,
@@ -186,6 +208,15 @@ class ApiClient:
                 "color_grupo": color_grupo,
                 "direccion": direccion
             }
+            if tiempo_verde is not None:
+                payload["tiempo_verde"] = tiempo_verde
+            if tiempo_amarillo is not None:
+                payload["tiempo_amarillo"] = tiempo_amarillo
+            if tiempo_rojo is not None:
+                payload["tiempo_rojo"] = tiempo_rojo
+            if offset_segundos is not None:
+                payload["offset_segundos"] = offset_segundos
+
             response = requests.put(
                 f"{self.base_url}/grupos/{grupo_id}",
                 headers=self._headers(),
@@ -211,39 +242,88 @@ class ApiClient:
             print(f"Error eliminando grupo: {e}")
             return False
 
-    def get_sincronizacion(self, interseccion_id):
+    def cambiar_estado_grupo(self, grupo_id, estado):
         try:
-            response = requests.get(
-                f"{self.base_url}/grupos/sincronizacion/{interseccion_id}",
-                headers=self._headers(),
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error obteniendo sincronizacion: {e}")
-            return []
-
-    def create_sincronizacion(self, interseccion_id, grupo_a_id, grupo_b_id, offset_segundos, descripcion):
-        try:
-            payload = {
-                "interseccion_id": interseccion_id,
-                "grupo_a_id": grupo_a_id,
-                "grupo_b_id": grupo_b_id,
-                "offset_segundos": offset_segundos,
-                "descripcion": descripcion
-            }
+            payload = {"estado": estado}
             response = requests.post(
-                f"{self.base_url}/grupos/sincronizacion",
+                f"{self.base_url}/grupos/{grupo_id}/estado",
                 headers=self._headers(),
                 json=payload,
                 timeout=10
             )
             response.raise_for_status()
-            return response.json().get("sincronizacion")
+            return response.json().get("grupo")
         except requests.exceptions.RequestException as e:
-            print(f"Error creando sincronizacion: {e}")
+            print(f"Error cambiando estado del grupo: {e}")
             return None
+
+    def activar_modo_automatico_grupo(self, grupo_id):
+        try:
+            response = requests.post(
+                f"{self.base_url}/grupos/{grupo_id}/automatico",
+                headers=self._headers(),
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json().get("grupo")
+        except requests.exceptions.RequestException as e:
+            print(f"Error activando modo automatico: {e}")
+            return None
+
+    def actualizar_tiempos_grupo(self, grupo_id, tiempo_verde=None, tiempo_amarillo=None, tiempo_rojo=None):
+        try:
+            payload = {}
+            if tiempo_verde is not None:
+                payload["tiempo_verde"] = tiempo_verde
+            if tiempo_amarillo is not None:
+                payload["tiempo_amarillo"] = tiempo_amarillo
+            if tiempo_rojo is not None:
+                payload["tiempo_rojo"] = tiempo_rojo
+
+            response = requests.put(
+                f"{self.base_url}/grupos/{grupo_id}/tiempos",
+                headers=self._headers(),
+                json=payload,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json().get("grupo")
+        except requests.exceptions.RequestException as e:
+            print(f"Error actualizando tiempos: {e}")
+            return None
+
+    # ==================== ESTADO DE SEMAFOROS ====================
+
+    def get_estado_grupo(self, grupo_id):
+        try:
+            response = requests.get(
+                f"{self.base_url}/grupos/{grupo_id}",
+                headers=self._headers(),
+                timeout=5
+            )
+            response.raise_for_status()
+            grupo = response.json()
+            return {
+                "estado": grupo.get("estado_actual", "verde"),
+                "modo_automatico": grupo.get("modo_automatico", True),
+                "tiempo_verde": grupo.get("tiempo_verde", 30),
+                "tiempo_amarillo": grupo.get("tiempo_amarillo", 5),
+                "tiempo_rojo": grupo.get("tiempo_rojo", 25)
+            }
+        except requests.exceptions.RequestException as e:
+            return None
+
+    def get_estados_interseccion(self, interseccion_id):
+        try:
+            response = requests.get(
+                f"{self.base_url}/ia/estados/{interseccion_id}",
+                headers=self._headers(),
+                timeout=5
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return []
 
     # ==================== DETECCIONES ====================
 
@@ -281,4 +361,24 @@ class ApiClient:
             return response.json().get("detection")
         except requests.exceptions.RequestException as e:
             print(f"Error guardando deteccion: {e}")
+            return None
+
+    # ==================== DECISIONES IA ====================
+
+    def tomar_decision_ia(self, interseccion_id, grupo_id=None):
+        try:
+            payload = {
+                "interseccion_id": interseccion_id,
+                "grupo_id": grupo_id
+            }
+            response = requests.post(
+                f"{self.base_url}/ia/decision",
+                headers=self._headers(),
+                json=payload,
+                timeout=15
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error tomando decision IA: {e}")
             return None

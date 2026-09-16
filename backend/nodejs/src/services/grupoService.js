@@ -20,7 +20,11 @@ class GrupoService {
       nombre: data.nombre,
       descripcion: data.descripcion || null,
       color_grupo: data.color_grupo || 'azul',
-      direccion: data.direccion || null
+      direccion: data.direccion || null,
+      tiempo_verde: data.tiempo_verde || 30,
+      tiempo_amarillo: data.tiempo_amarillo || 5,
+      tiempo_rojo: data.tiempo_rojo || 25,
+      offset_segundos: data.offset_segundos || 0
     });
   }
 
@@ -60,19 +64,55 @@ class GrupoService {
     return await GrupoSemaforo.delete(id);
   }
 
-  static async getSincronizacion(interseccion_id) {
-    return await GrupoSemaforo.getSincronizacion(interseccion_id);
-  }
-
-  static async createSincronizacion(data) {
-    if (!data.interseccion_id || !data.grupo_a_id || !data.grupo_b_id) {
-      throw new Error('Interseccion, grupo A y grupo B son requeridos');
+  static async cambiarEstado(id, estado) {
+    const grupo = await GrupoSemaforo.findById(id);
+    if (!grupo) {
+      throw new Error('Grupo no encontrado');
     }
-    return await GrupoSemaforo.createSincronizacion(data);
+
+    const estadosValidos = ['verde', 'amarillo', 'rojo'];
+    if (!estadosValidos.includes(estado)) {
+      throw new Error('Estado no valido. Usa: verde, amarillo, rojo');
+    }
+
+    return await GrupoSemaforo.cambiarEstado(id, estado);
   }
 
-  static async deleteSincronizacion(id) {
-    return await GrupoSemaforo.deleteSincronizacion(id);
+  static async activarModoAutomatico(id) {
+    const grupo = await GrupoSemaforo.findById(id);
+    if (!grupo) {
+      throw new Error('Grupo no encontrado');
+    }
+    return await GrupoSemaforo.activarModoAutomatico(id);
+  }
+
+  static async actualizarTiempos(id, tiempos) {
+    const grupo = await GrupoSemaforo.findById(id);
+    if (!grupo) {
+      throw new Error('Grupo no encontrado');
+    }
+
+    const data = {};
+    if (tiempos.tiempo_verde !== undefined) {
+      if (tiempos.tiempo_verde < 5 || tiempos.tiempo_verde > 120) {
+        throw new Error('Tiempo verde debe estar entre 5 y 120 segundos');
+      }
+      data.tiempo_verde = tiempos.tiempo_verde;
+    }
+    if (tiempos.tiempo_amarillo !== undefined) {
+      if (tiempos.tiempo_amarillo < 2 || tiempos.tiempo_amarillo > 15) {
+        throw new Error('Tiempo amarillo debe estar entre 2 y 15 segundos');
+      }
+      data.tiempo_amarillo = tiempos.tiempo_amarillo;
+    }
+    if (tiempos.tiempo_rojo !== undefined) {
+      if (tiempos.tiempo_rojo < 5 || tiempos.tiempo_rojo > 120) {
+        throw new Error('Tiempo rojo debe estar entre 5 y 120 segundos');
+      }
+      data.tiempo_rojo = tiempos.tiempo_rojo;
+    }
+
+    return await GrupoSemaforo.update(id, data);
   }
 }
 

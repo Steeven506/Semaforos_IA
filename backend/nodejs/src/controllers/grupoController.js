@@ -64,33 +64,37 @@ class GrupoController {
     }
   }
 
-  static async getSincronizacion(req, res) {
+  static async cambiarEstado(req, res) {
     try {
-      const sincronizacion = await GrupoService.getSincronizacion(req.params.interseccion_id);
-      res.json(sincronizacion);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  static async createSincronizacion(req, res) {
-    try {
-      const sincronizacion = await GrupoService.createSincronizacion(req.body);
-      res.status(201).json({
-        message: 'Sincronizacion creada exitosamente',
-        sincronizacion
+      const { estado } = req.body;
+      const grupo = await GrupoService.cambiarEstado(req.params.id, estado);
+      res.json({
+        message: `Estado cambiado a ${estado}`,
+        grupo
       });
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
   }
 
-  static async deleteSincronizacion(req, res) {
+  static async activarModoAutomatico(req, res) {
     try {
-      const sincronizacion = await GrupoService.deleteSincronizacion(req.params.id);
+      const grupo = await GrupoService.activarModoAutomatico(req.params.id);
       res.json({
-        message: 'Sincronizacion eliminada exitosamente',
-        sincronizacion
+        message: 'Modo automatico activado',
+        grupo
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async actualizarTiempos(req, res) {
+    try {
+      const grupo = await GrupoService.actualizarTiempos(req.params.id, req.body);
+      res.json({
+        message: 'Tiempos actualizados exitosamente',
+        grupo
       });
     } catch (error) {
       res.status(400).json({ error: error.message });

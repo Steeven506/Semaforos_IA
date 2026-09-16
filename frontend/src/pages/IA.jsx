@@ -3,22 +3,30 @@ import { useAuth } from '../context/AuthContext';
 import iaService from '../services/iaService';
 import intersectionService from '../services/intersectionService';
 import Header from '../components/layout/Header';
+import AnalisisTrafico from '../components/ia/AnalisisTrafico';
+import ControlSemaforos from '../components/ia/ControlSemaforos';
+import DecisionesIA from '../components/ia/DecisionesIA';
 import {
-  Brain, TrendingUp, AlertTriangle, Lightbulb,
-  BarChart3, Clock, Target, Zap, RefreshCw, Activity
+  Brain, Target, RefreshCw, Play, TrendingUp,
+  Lightbulb, AlertTriangle, BarChart3, Activity
 } from 'lucide-react';
 
 function IA() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isOperador } = useAuth();
   const [intersections, setIntersections] = useState([]);
   const [selectedIntersection, setSelectedIntersection] = useState(null);
-  const [sugerencias, setSugerencias] = useState([]);
+  const [analisis, setAnalisis] = useState(null);
   const [prediccion, setPrediccion] = useState([]);
-  const [reporte, setReporte] = useState(null);
+  const [sugerencias, setSugerencias] = useState([]);
   const [decisiones, setDecisiones] = useState([]);
+  const [estadisticas, setEstadisticas] = useState([]);
+  const [reporte, setReporte] = useState(null);
   const [reporteSemanal, setReporteSemanal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [tomandoDecision, setTomandoDecision] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadIntersections();
@@ -48,18 +56,22 @@ function IA() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [sugRes, predRes, repRes, decRes, semRes] = await Promise.all([
-        iaService.getSugerencias(selectedIntersection).catch(() => []),
+      const [analisisRes, predRes, sugRes, decRes, estRes, repRes, semRes] = await Promise.all([
+        iaService.analizarTrafico(selectedIntersection, 24).catch(() => null),
         iaService.getPrediccion(selectedIntersection).catch(() => []),
-        iaService.getReporte(selectedIntersection).catch(() => null),
+        iaService.getSugerencias(selectedIntersection).catch(() => []),
         iaService.getDecisiones(selectedIntersection).catch(() => []),
+        iaService.getEstadisticas(selectedIntersection).catch(() => []),
+        iaService.getReporte(selectedIntersection).catch(() => null),
         iaService.getReporteSemanal(selectedIntersection).catch(() => null)
       ]);
 
-      setSugerencias(sugRes);
+      setAnalisis(analisisRes);
       setPrediccion(predRes);
-      setReporte(repRes);
+      setSugerencias(sugRes);
       setDecisiones(decRes);
+      setEstadisticas(estRes);
+      setReporte(repRes);
       setReporteSemanal(semRes);
     } catch (error) {
       console.error('Error:', error);
@@ -71,6 +83,27 @@ function IA() {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const handleTomarDecision = async () => {
+    setTomandoDecision(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await iaService.tomarDecision(selectedIntersection);
+      if (result.exito) {
+        setSuccess(`Decision tomada: verde por ${result.decision.tiempo_verde}s`);
+        await loadData();
+        setTimeout(() => setSuccess(''), 5000);
+      } else {
+        setError(result.mensaje);
+      }
+    } catch (error) {
+      setError(error.response?.data?.error || 'Error al tomar decision');
+    } finally {
+      setTomandoDecision(false);
+    }
   };
 
   if (loading && !selectedIntersection) {
@@ -85,7 +118,7 @@ function IA() {
     <div>
       <Header
         title="Inteligencia Artificial"
-        subtitle="Decisiones y sugerencias basadas en datos"
+        subtitle="Analisis, decisiones y control de trafico"
       />
 
       <div className="p-6 space-y-6">
@@ -103,22 +136,54 @@ function IA() {
               <option key={i.id} value={i.id}>{i.nombre}</option>
             ))}
           </select>
+
+          {isOperador() && (
+            <button
+              onClick={handleTomarDecision}
+              disabled={tomandoDecision}
+              className={`btn-primary flex items-center gap-2 ${
+                tomandoDecision ? 'opacity-50' : ''
+              }`}
+            >
+              <Play className={`w-4 h-4 ${tomandoDecision ? 'animate-pulse' : ''}`} />
+              {tomandoDecision ? 'Analizando...' : 'Tomar Decision IA'}
+            </button>
+          )}
+
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className={`btn-primary flex items-center gap-2 ${refreshing ? 'opacity-50' : ''}`}
+            className={`btn-success flex items-center gap-2 ${refreshing ? 'opacity-50' : ''}`}
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Actualizar
           </button>
         </div>
 
-        <div className="glass-card p-6">
-          <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
-            <Lightbulb className="w-5 h-5 text-yellow-400" />
-            Sugerencias de Optimizacion
-          </h2>
-          {sugerencias.length > 0 ? (
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-lg flex items-center gap-2">
+            <Lightbulb className="w-5 h-5" />
+            {success}
+          </div>
+        )}
+
+        <AnalisisTrafico analisis={analisis} />
+
+        <ControlSemaforos interseccion_id={selectedIntersection} onUpdate={loadData} />
+
+        {sugerencias.length > 0 && (
+          <div className="glass-card p-6">
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
+              <Lightbulb className="w-5 h-5 text-yellow-400" />
+              Sugerencias de Optimizacion
+            </h2>
             <div className="space-y-3">
               {sugerencias.map((s, i) => (
                 <div key={i} className="flex items-start gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -130,17 +195,15 @@ function IA() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">Sin sugerencias por ahora</p>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="glass-card p-6">
-          <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
-            <TrendingUp className="w-5 h-5 text-blue-400" />
-            Prediccion de Flujo por Hora
-          </h2>
-          {prediccion.length > 0 ? (
+        {prediccion.length > 0 && (
+          <div className="glass-card p-6">
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
+              <TrendingUp className="w-5 h-5 text-blue-400" />
+              Prediccion de Flujo por Hora
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {prediccion.map((p, i) => (
                 <div key={i} className="p-3 bg-gray-100 dark:bg-dark-700/50 rounded-lg text-center">
@@ -156,37 +219,10 @@ function IA() {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">Sin datos de prediccion</p>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="glass-card p-6">
-          <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
-            <Brain className="w-5 h-5 text-purple-400" />
-            Decisiones Recientes de la IA
-          </h2>
-          {decisiones.length > 0 ? (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {decisiones.map((d, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-dark-700/50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{d.accion}</p>
-                    <p className="text-xs text-gray-500">
-                      {d.algoritmo} - {new Date(d.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-purple-400">{d.tiempo_verde}s</p>
-                    <p className="text-xs text-gray-500">verde</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">Sin decisiones registradas</p>
-          )}
-        </div>
+        <DecisionesIA decisiones={decisiones} estadisticas={estadisticas} />
 
         {reporte && reporte.resumen && (
           <div className="glass-card p-6">

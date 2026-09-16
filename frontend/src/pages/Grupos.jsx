@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import grupoService from '../services/grupoService';
 import intersectionService from '../services/intersectionService';
+import { connectSocket } from '../services/socket';
 import Header from '../components/layout/Header';
 import GrupoList from '../components/grupos/GrupoList';
 import GrupoForm from '../components/grupos/GrupoForm';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, RefreshCw } from 'lucide-react';
 
 function Grupos() {
   const { isAdmin, isOperador } = useAuth();
@@ -43,6 +44,20 @@ function Grupos() {
 
   useEffect(() => {
     fetchData();
+
+    const socket = connectSocket();
+    if (socket) {
+      socket.on('semaforo:cambio', () => {
+        fetchData();
+      });
+      socket.emit('join:global');
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('semaforo:cambio');
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -166,6 +181,14 @@ function Grupos() {
             </select>
           </div>
 
+          <button
+            onClick={fetchData}
+            className="btn-primary flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Actualizar
+          </button>
+
           {canEdit && (
             <button
               onClick={handleCreate}
@@ -181,6 +204,7 @@ function Grupos() {
           grupos={filteredGrupos}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onUpdate={fetchData}
           canEdit={canEdit}
           canDelete={canDelete}
         />

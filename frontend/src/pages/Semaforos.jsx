@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import semaforoService from '../services/semaforoService';
 import intersectionService from '../services/intersectionService';
+import grupoService from '../services/grupoService';
+import { connectSocket } from '../services/socket';
 import Header from '../components/layout/Header';
 import SemaforoList from '../components/semaforos/SemaforoList';
 import SemaforoForm from '../components/semaforos/SemaforoForm';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, RefreshCw } from 'lucide-react';
 
 function Semaforos() {
   const { isAdmin, isOperador } = useAuth();
   const [semaforos, setSemaforos] = useState([]);
   const [filteredSemaforos, setFilteredSemaforos] = useState([]);
   const [intersections, setIntersections] = useState([]);
+  const [grupos, setGrupos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -26,13 +29,15 @@ function Semaforos() {
 
   const fetchData = async () => {
     try {
-      const [semaforosData, intersectionsData] = await Promise.all([
+      const [semaforosData, intersectionsData, gruposData] = await Promise.all([
         semaforoService.getAll(),
-        intersectionService.getAll()
+        intersectionService.getAll(),
+        grupoService.getAll().catch(() => [])
       ]);
       setSemaforos(semaforosData);
       setFilteredSemaforos(semaforosData);
       setIntersections(intersectionsData);
+      setGrupos(gruposData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -43,6 +48,20 @@ function Semaforos() {
 
   useEffect(() => {
     fetchData();
+
+    const socket = connectSocket();
+    if (socket) {
+      socket.on('semaforo:cambio', () => {
+        fetchData();
+      });
+      socket.emit('join:global');
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('semaforo:cambio');
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -115,15 +134,15 @@ function Semaforos() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-gray-400 text-xl">Cargando semaforos...</div>
+        <div className="text-gray-500 text-xl">Cargando semaforos...</div>
       </div>
     );
   }
 
   return (
     <div>
-      <Header 
-        title="Semaforos" 
+      <Header
+        title="Semaforos"
         subtitle={`${semaforos.length} semaforos registrados`}
       />
 
@@ -166,6 +185,14 @@ function Semaforos() {
             </select>
           </div>
 
+          <button
+            onClick={fetchData}
+            className="btn-primary flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Actualizar
+          </button>
+
           {canEdit && (
             <button
               onClick={handleCreate}
@@ -181,7 +208,6 @@ function Semaforos() {
           semaforos={filteredSemaforos}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          onView={(s) => console.log('Ver', s)}
           canEdit={canEdit}
           canDelete={canDelete}
         />
@@ -191,6 +217,7 @@ function Semaforos() {
         <SemaforoForm
           semaforo={editingSemaforo}
           intersections={intersections}
+          grupos={grupos}
           onSubmit={handleSubmit}
           onCancel={() => {
             setShowForm(false);

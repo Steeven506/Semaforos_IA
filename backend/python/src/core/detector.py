@@ -3,18 +3,18 @@ from ultralytics import YOLO
 
 
 class VehicleDetector:
+    PERSON_CLASSES = {
+        0: "persona"
+    }
+
     VEHICLE_CLASSES = {
-        2: "car",
-        3: "motorcycle",
+        2: "carro",
+        3: "moto",
         5: "bus",
-        7: "truck"
+        7: "camion"
     }
 
-    PERSON_CLASS = {
-        0: "person"
-    }
-
-    ALL_CLASSES = {**PERSON_CLASS, **VEHICLE_CLASSES}
+    ALL_CLASSES = {**PERSON_CLASSES, **VEHICLE_CLASSES}
 
     def __init__(self, model_path="yolo11n.pt", confidence_threshold=0.5):
         self.model = YOLO(model_path)
@@ -27,7 +27,13 @@ class VehicleDetector:
         self.frame_count += 1
         results = self.model(frame, verbose=False, conf=self.confidence_threshold)
         detections = []
-        counters = {class_id: 0 for class_id in self.ALL_CLASSES.keys()}
+        counters = {
+            0: 0,
+            2: 0,
+            3: 0,
+            5: 0,
+            7: 0
+        }
 
         current_boxes = []
         for box in results[0].boxes:
@@ -81,8 +87,7 @@ class VehicleDetector:
                     "center_y": box["center_y"],
                     "bbox": box["bbox"],
                     "confidence": box["confidence"],
-                    "frame_count": self.frame_count,
-                    "counted": False
+                    "frame_count": self.frame_count
                 }
 
         to_delete = []
@@ -117,22 +122,22 @@ class VehicleDetector:
             x1, y1, x2, y2 = detection["bounding_box"]
             color = self._get_color_for_class(detection["class_id"])
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
             label = f"{detection['name']} {detection['confidence']:.2f}"
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
             track_label = f"ID:{detection['track_id']}"
             cv2.putText(frame, track_label, (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
         return frame
 
     @staticmethod
     def _get_color_for_class(class_id):
-        if class_id == 0:
-            return (255, 255, 255)
-        elif class_id == 2:
-            return (0, 255, 0)
-        elif class_id == 3:
-            return (255, 255, 0)
-        elif class_id == 5:
-            return (255, 0, 0)
-        elif class_id == 7:
-            return (0, 255, 255)
-        return (0, 255, 0)
+        colors = {
+            0: (255, 255, 255),
+            2: (0, 255, 0),
+            3: (255, 255, 0),
+            5: (255, 0, 0),
+            7: (0, 255, 255)
+        }
+        return colors.get(class_id, (0, 255, 0))

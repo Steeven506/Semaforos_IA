@@ -8,6 +8,10 @@ function GrupoForm({ grupo, intersections, onSubmit, onCancel, loading }) {
     descripcion: '',
     color_grupo: 'azul',
     direccion: 'Norte-Sur',
+    tiempo_verde: 30,
+    tiempo_amarillo: 5,
+    tiempo_rojo: 25,
+    offset_segundos: 0,
   });
 
   useEffect(() => {
@@ -18,6 +22,10 @@ function GrupoForm({ grupo, intersections, onSubmit, onCancel, loading }) {
         descripcion: grupo.descripcion || '',
         color_grupo: grupo.color_grupo || 'azul',
         direccion: grupo.direccion || 'Norte-Sur',
+        tiempo_verde: grupo.tiempo_verde || 30,
+        tiempo_amarillo: grupo.tiempo_amarillo || 5,
+        tiempo_rojo: grupo.tiempo_rojo || 25,
+        offset_segundos: grupo.offset_segundos || 0,
       });
     } else if (intersections.length > 0) {
       setFormData(prev => ({ ...prev, interseccion_id: intersections[0].id }));
@@ -33,13 +41,20 @@ function GrupoForm({ grupo, intersections, onSubmit, onCancel, loading }) {
     onSubmit({
       ...formData,
       interseccion_id: parseInt(formData.interseccion_id),
+      tiempo_verde: parseInt(formData.tiempo_verde),
+      tiempo_amarillo: parseInt(formData.tiempo_amarillo),
+      tiempo_rojo: parseInt(formData.tiempo_rojo),
+      offset_segundos: parseInt(formData.offset_segundos),
     });
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50">
-      <div className="glass-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-700">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
+      <div
+        className="glass-card w-full max-w-2xl flex flex-col"
+        style={{ maxHeight: '90vh' }}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-700 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
             {grupo ? 'Editar Grupo' : 'Nuevo Grupo'}
           </h2>
@@ -51,7 +66,7 @@ function GrupoForm({ grupo, intersections, onSubmit, onCancel, loading }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
               Interseccion *
@@ -138,28 +153,100 @@ function GrupoForm({ grupo, intersections, onSubmit, onCancel, loading }) {
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-4 py-3 bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600 text-gray-900 dark:text-white rounded-lg transition font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition font-medium ${
-                loading
-                  ? 'bg-gray-600 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
-              }`}
-            >
-              <Save className="w-4 h-4" />
-              {loading ? 'Guardando...' : 'Guardar'}
-            </button>
+          <div className="border-t border-gray-200 dark:border-dark-700 pt-4">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
+              Tiempos de Fase (segundos)
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-green-500 mb-2">
+                  Verde
+                </label>
+                <input
+                  type="number"
+                  name="tiempo_verde"
+                  value={formData.tiempo_verde}
+                  onChange={handleChange}
+                  className="input-field"
+                  min="5"
+                  max="120"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-yellow-500 mb-2">
+                  Amarillo
+                </label>
+                <input
+                  type="number"
+                  name="tiempo_amarillo"
+                  value={formData.tiempo_amarillo}
+                  onChange={handleChange}
+                  className="input-field"
+                  min="2"
+                  max="15"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-red-500 mb-2">
+                  Rojo
+                </label>
+                <input
+                  type="number"
+                  name="tiempo_rojo"
+                  value={formData.tiempo_rojo}
+                  onChange={handleChange}
+                  className="input-field"
+                  min="5"
+                  max="120"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+              Offset (segundos)
+            </label>
+            <input
+              type="number"
+              name="offset_segundos"
+              value={formData.offset_segundos}
+              onChange={handleChange}
+              className="input-field"
+              min="0"
+              max="120"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Desfase con respecto al grupo principal (usalo para grupos opuestos)
+            </p>
           </div>
         </form>
+
+        <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-dark-700 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 px-4 py-3 bg-gray-200 dark:bg-dark-700 hover:bg-gray-300 dark:hover:bg-dark-600 text-gray-900 dark:text-white rounded-lg transition font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition font-medium ${
+              loading
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
+          >
+            <Save className="w-4 h-4" />
+            {loading ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
       </div>
     </div>
   );

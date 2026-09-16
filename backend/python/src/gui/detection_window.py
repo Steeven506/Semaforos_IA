@@ -25,7 +25,6 @@ class DetectionWindow(QMainWindow):
         self.running = True
         self.frame_counters = {}
         self.camera_threads = []
-        self.traffic_lights = {}
         self.grupo_lights = {}
 
         self.setWindowTitle("Traffic System - Deteccion en Tiempo Real")
@@ -38,6 +37,7 @@ class DetectionWindow(QMainWindow):
 
         self.traffic_timer = QTimer()
         self.traffic_timer.timeout.connect(self.update_traffic_lights)
+        self.traffic_timer.timeout.connect(self.sync_from_server)
         self.traffic_timer.start(1000)
 
     def setup_grupo_lights(self):
@@ -102,8 +102,8 @@ class DetectionWindow(QMainWindow):
 
         layout.addStretch()
 
-        self.total_label = QLabel("Vehiculos: 0 | Personas: 0")
-        self.total_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 14px; font-weight: bold;")
+        self.total_label = QLabel("Personas: 0 | Carros: 0 | Motos: 0")
+        self.total_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 13px; font-weight: bold;")
         layout.addWidget(self.total_label)
 
         stop_button = QPushButton("Detener")
@@ -142,9 +142,7 @@ class DetectionWindow(QMainWindow):
             container_layout.setContentsMargins(10, 10, 10, 10)
             container_layout.setSpacing(8)
 
-            grupo_text = ""
-            if grupo_id:
-                grupo_text = f" [Grupo {grupo_id}]"
+            grupo_text = f" [Grupo {grupo_id}]" if grupo_id else ""
 
             name_label = QLabel(f"{name}{grupo_text}")
             name_label.setAlignment(Qt.AlignCenter)
@@ -163,10 +161,42 @@ class DetectionWindow(QMainWindow):
             video_label.setMinimumHeight(220)
             container_layout.addWidget(video_label)
 
-            counter_label = QLabel("Personas: 0 | Carros: 0 | Motos: 0")
-            counter_label.setAlignment(Qt.AlignCenter)
-            counter_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px; font-weight: bold;")
-            container_layout.addWidget(counter_label)
+            counters_grid = QFrame()
+            counters_grid.setStyleSheet(f"""
+                background-color: {COLORS['bg_primary']};
+                border-radius: 8px;
+                padding: 6px;
+            """)
+            counters_layout = QHBoxLayout(counters_grid)
+            counters_layout.setContentsMargins(5, 5, 5, 5)
+            counters_layout.setSpacing(5)
+
+            personas_label = QLabel("P: 0")
+            personas_label.setAlignment(Qt.AlignCenter)
+            personas_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
+            counters_layout.addWidget(personas_label)
+
+            carros_label = QLabel("C: 0")
+            carros_label.setAlignment(Qt.AlignCenter)
+            carros_label.setStyleSheet("color: #00ff00; font-size: 12px; font-weight: bold;")
+            counters_layout.addWidget(carros_label)
+
+            motos_label = QLabel("M: 0")
+            motos_label.setAlignment(Qt.AlignCenter)
+            motos_label.setStyleSheet("color: #ffff00; font-size: 12px; font-weight: bold;")
+            counters_layout.addWidget(motos_label)
+
+            buses_label = QLabel("B: 0")
+            buses_label.setAlignment(Qt.AlignCenter)
+            buses_label.setStyleSheet("color: #ff0000; font-size: 12px; font-weight: bold;")
+            counters_layout.addWidget(buses_label)
+
+            camiones_label = QLabel("T: 0")
+            camiones_label.setAlignment(Qt.AlignCenter)
+            camiones_label.setStyleSheet("color: #00ffff; font-size: 12px; font-weight: bold;")
+            counters_layout.addWidget(camiones_label)
+
+            container_layout.addWidget(counters_grid)
 
             traffic_frame = QFrame()
             traffic_frame.setStyleSheet(f"""
@@ -194,9 +224,9 @@ class DetectionWindow(QMainWindow):
 
             traffic_layout.addStretch()
 
-            vehicles_count = QLabel("Vehiculos: 0")
-            vehicles_count.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
-            traffic_layout.addWidget(vehicles_count)
+            vehiculos_count = QLabel("Vehiculos: 0")
+            vehiculos_count.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
+            traffic_layout.addWidget(vehiculos_count)
 
             container_layout.addWidget(traffic_frame)
 
@@ -204,7 +234,11 @@ class DetectionWindow(QMainWindow):
 
             self.frame_counters[idx] = {
                 'video_label': video_label,
-                'counter_label': counter_label,
+                'personas_label': personas_label,
+                'carros_label': carros_label,
+                'motos_label': motos_label,
+                'buses_label': buses_label,
+                'camiones_label': camiones_label,
                 'name': name,
                 'url': url,
                 'camera_type': camera_type,
@@ -212,10 +246,10 @@ class DetectionWindow(QMainWindow):
                 'grupo_id': grupo_id,
                 'interseccion_id': interseccion_id,
                 'running': True,
-                'counters': defaultdict(int),
+                'counters': {0: 0, 2: 0, 3: 0, 5: 0, 7: 0},
                 'traffic_display': traffic_display,
                 'traffic_status': traffic_status,
-                'vehicles_count': vehicles_count,
+                'vehiculos_count': vehiculos_count,
             }
 
     def start_processing(self):
@@ -257,7 +291,24 @@ class DetectionWindow(QMainWindow):
 
                     counters = counter_data.get('counters', {})
                     v_count = sum(v for k, v in counters.items() if k != 0)
-                    counter_data['vehicles_count'].setText(f"Vehiculos: {v_count}")
+                    counter_data['vehiculos_count'].setText(f"Vehiculos: {v_count}")
+
+    def sync_from_server(self):
+        for grupo_id, traffic_light in self.grupo_lights.items():
+            try:
+                estado = self.api.get_estado_grupo(grupo_id)
+                if estado and estado.get("estado"):
+                    estado_servidor = estado.get("estado")
+                    estado_local = traffic_light.state
+
+                    if estado_servidor == "verde" and estado_local != "green":
+                        traffic_light.force_state("verde")
+                    elif estado_servidor == "rojo" and estado_local != "red":
+                        traffic_light.force_state("rojo")
+                    elif estado_servidor == "amarillo" and estado_local != "yellow":
+                        traffic_light.force_state("amarillo")
+            except Exception:
+                pass
 
     def process_camera(self, idx, counter_data):
         url = counter_data['url']
@@ -283,7 +334,7 @@ class DetectionWindow(QMainWindow):
 
         detector = VehicleDetector(self.model)
         frame_count = 0
-        minute_counter = defaultdict(int)
+        minute_counter = {0: 0, 2: 0, 3: 0, 5: 0, 7: 0}
         last_save = time.time()
 
         while counter_data['running'] and self.running:
@@ -303,7 +354,13 @@ class DetectionWindow(QMainWindow):
             counter_data['counters'] = counters
 
             for class_id, count in counters.items():
-                minute_counter[class_id] += count
+                minute_counter[class_id] = minute_counter.get(class_id, 0) + count
+
+            counter_data['personas_label'].setText(f"P: {counters.get(0, 0)}")
+            counter_data['carros_label'].setText(f"C: {counters.get(2, 0)}")
+            counter_data['motos_label'].setText(f"M: {counters.get(3, 0)}")
+            counter_data['buses_label'].setText(f"B: {counters.get(5, 0)}")
+            counter_data['camiones_label'].setText(f"T: {counters.get(7, 0)}")
 
             if time.time() - last_save >= 60:
                 self.api.save_detection(
@@ -311,12 +368,8 @@ class DetectionWindow(QMainWindow):
                     counters=minute_counter,
                     interseccion_id=counter_data.get('interseccion_id')
                 )
-                minute_counter.clear()
+                minute_counter = {0: 0, 2: 0, 3: 0, 5: 0, 7: 0}
                 last_save = time.time()
-
-            counter_data['counter_label'].setText(
-                f"Personas: {counters.get(0, 0)} | Carros: {counters.get(2, 0)} | Motos: {counters.get(3, 0)}"
-            )
 
             processed_frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             height, width, channel = processed_frame_rgb.shape
@@ -330,15 +383,19 @@ class DetectionWindow(QMainWindow):
 
     def update_totals(self):
         total_personas = 0
-        total_vehiculos = 0
+        total_carros = 0
+        total_motos = 0
 
         for counter_data in self.frame_counters.values():
             if 'counters' in counter_data:
                 counters = counter_data.get('counters', {})
                 total_personas += counters.get(0, 0)
-                total_vehiculos += sum(v for k, v in counters.items() if k != 0)
+                total_carros += counters.get(2, 0)
+                total_motos += counters.get(3, 0)
 
-        self.total_label.setText(f"Vehiculos: {total_vehiculos} | Personas: {total_personas}")
+        self.total_label.setText(
+            f"Personas: {total_personas} | Carros: {total_carros} | Motos: {total_motos}"
+        )
 
     def closeEvent(self, event):
         self.running = False
@@ -353,18 +410,16 @@ class DetectionWindow(QMainWindow):
 
 
 class VehicleDetector:
+    PERSON_CLASSES = {0: "persona"}
+
     VEHICLE_CLASSES = {
-        2: "car",
-        3: "motorcycle",
+        2: "carro",
+        3: "moto",
         5: "bus",
-        7: "truck"
+        7: "camion"
     }
 
-    PERSON_CLASS = {
-        0: "person"
-    }
-
-    ALL_CLASSES = {**PERSON_CLASS, **VEHICLE_CLASSES}
+    ALL_CLASSES = {**PERSON_CLASSES, **VEHICLE_CLASSES}
 
     def __init__(self, model, confidence_threshold=0.5):
         self.model = model
@@ -377,7 +432,7 @@ class VehicleDetector:
         self.frame_count += 1
         results = self.model(frame, verbose=False, conf=self.confidence_threshold)
         detections = []
-        counters = {class_id: 0 for class_id in self.ALL_CLASSES.keys()}
+        counters = {0: 0, 2: 0, 3: 0, 5: 0, 7: 0}
 
         current_boxes = []
         for box in results[0].boxes:
@@ -431,8 +486,7 @@ class VehicleDetector:
                     "center_y": box["center_y"],
                     "bbox": box["bbox"],
                     "confidence": box["confidence"],
-                    "frame_count": self.frame_count,
-                    "counted": False
+                    "frame_count": self.frame_count
                 }
 
         to_delete = []
@@ -467,22 +521,22 @@ class VehicleDetector:
             x1, y1, x2, y2 = detection["bounding_box"]
             color = self._get_color_for_class(detection["class_id"])
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
             label = f"{detection['name']} {detection['confidence']:.2f}"
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
             track_label = f"ID:{detection['track_id']}"
             cv2.putText(frame, track_label, (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
         return frame
 
     @staticmethod
     def _get_color_for_class(class_id):
-        if class_id == 0:
-            return (255, 255, 255)
-        elif class_id == 2:
-            return (0, 255, 0)
-        elif class_id == 3:
-            return (255, 255, 0)
-        elif class_id == 5:
-            return (255, 0, 0)
-        elif class_id == 7:
-            return (0, 255, 255)
-        return (0, 255, 0)
+        colors = {
+            0: (255, 255, 255),
+            2: (0, 255, 0),
+            3: (255, 255, 0),
+            5: (255, 0, 0),
+            7: (0, 255, 255)
+        }
+        return colors.get(class_id, (0, 255, 0))

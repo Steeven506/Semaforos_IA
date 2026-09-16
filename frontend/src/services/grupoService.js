@@ -31,18 +31,18 @@ const grupoService = {
     return response.data;
   },
 
-  getSincronizacion: async (interseccion_id) => {
-    const response = await api.get(`/grupos/sincronizacion/${interseccion_id}`);
+  cambiarEstado: async (id, estado) => {
+    const response = await api.post(`/grupos/${id}/estado`, { estado });
     return response.data;
   },
 
-  createSincronizacion: async (data) => {
-    const response = await api.post('/grupos/sincronizacion', data);
+  activarModoAutomatico: async (id) => {
+    const response = await api.post(`/grupos/${id}/automatico`);
     return response.data;
   },
 
-  deleteSincronizacion: async (id) => {
-    const response = await api.delete(`/grupos/sincronizacion/${id}`);
+  actualizarTiempos: async (id, tiempos) => {
+    const response = await api.put(`/grupos/${id}/tiempos`, tiempos);
     return response.data;
   },
 };

@@ -1,7 +1,7 @@
 import React from 'react';
 import GrupoCard from './GrupoCard';
 
-function GrupoList({ grupos, onEdit, onDelete, canEdit, canDelete }) {
+function GrupoList({ grupos, onEdit, onDelete, onUpdate, canEdit, canDelete }) {
   if (grupos.length === 0) {
     return (
       <div className="glass-card p-12 text-center">
@@ -21,6 +21,7 @@ function GrupoList({ grupos, onEdit, onDelete, canEdit, canDelete }) {
           grupo={grupo}
           onEdit={onEdit}
           onDelete={onDelete}
+          onUpdate={onUpdate}
           canEdit={canEdit}
           canDelete={canDelete}
         />

@@ -1,14 +1,24 @@
 const db = require('../config/database');
 
 class GrupoSemaforo {
-  static async create({ interseccion_id, nombre, descripcion, color_grupo, direccion }) {
+  static async create({ interseccion_id, nombre, descripcion, color_grupo, direccion, tiempo_verde, tiempo_amarillo, tiempo_rojo, offset_segundos }) {
     const query = `
       INSERT INTO grupos_semaforos 
-      (interseccion_id, nombre, descripcion, color_grupo, direccion)
-      VALUES ($1, $2, $3, $4, $5)
+      (interseccion_id, nombre, descripcion, color_grupo, direccion, tiempo_verde, tiempo_amarillo, tiempo_rojo, offset_segundos)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
-    const values = [interseccion_id, nombre, descripcion, color_grupo || 'azul', direccion || null];
+    const values = [
+      interseccion_id,
+      nombre,
+      descripcion || null,
+      color_grupo || 'azul',
+      direccion || null,
+      tiempo_verde || 30,
+      tiempo_amarillo || 5,
+      tiempo_rojo || 25,
+      offset_segundos || 0
+    ];
     const result = await db.query(query, values);
     return result.rows[0];
   }
@@ -17,7 +27,7 @@ class GrupoSemaforo {
     const query = `
       SELECT g.*, i.nombre as interseccion_nombre,
              (SELECT COUNT(*) FROM semaforos WHERE grupo_id = g.id) as total_semaforos,
-             (SELECT COUNT(*) FROM cameras WHERE interseccion_id = g.interseccion_id) as total_camaras
+             (SELECT COUNT(*) FROM cameras WHERE grupo_id = g.id) as total_camaras
       FROM grupos_semaforos g
       JOIN intersecciones i ON g.interseccion_id = i.id
       ORDER BY g.interseccion_id, g.nombre
@@ -54,7 +64,18 @@ class GrupoSemaforo {
     const values = [];
     let counter = 1;
 
-    const allowedFields = ['nombre', 'descripcion', 'color_grupo', 'direccion'];
+    const allowedFields = [
+      'nombre',
+      'descripcion',
+      'color_grupo',
+      'direccion',
+      'tiempo_verde',
+      'tiempo_amarillo',
+      'tiempo_rojo',
+      'estado_actual',
+      'modo_automatico',
+      'offset_segundos'
+    ];
 
     for (const field of allowedFields) {
       if (data[field] !== undefined) {
@@ -90,37 +111,23 @@ class GrupoSemaforo {
     return result.rows[0];
   }
 
-  static async getSincronizacion(interseccion_id) {
+  static async cambiarEstado(id, estado) {
     const query = `
-      SELECT sg.*, 
-             ga.nombre as grupo_a_nombre, 
-             gb.nombre as grupo_b_nombre
-      FROM sincronizacion_grupos sg
-      JOIN grupos_semaforos ga ON sg.grupo_a_id = ga.id
-      JOIN grupos_semaforos gb ON sg.grupo_b_id = gb.id
-      WHERE sg.interseccion_id = $1
-    `;
-    const result = await db.query(query, [interseccion_id]);
-    return result.rows;
-  }
-
-  static async createSincronizacion({ interseccion_id, grupo_a_id, grupo_b_id, offset_segundos, descripcion }) {
-    const query = `
-      INSERT INTO sincronizacion_grupos 
-      (interseccion_id, grupo_a_id, grupo_b_id, offset_segundos, descripcion)
-      VALUES ($1, $2, $3, $4, $5)
+      UPDATE grupos_semaforos
+      SET estado_actual = $1, modo_automatico = FALSE
+      WHERE id = $2
       RETURNING *
     `;
-    const values = [interseccion_id, grupo_a_id, grupo_b_id, offset_segundos || 0, descripcion];
-    const result = await db.query(query, values);
+    const result = await db.query(query, [estado, id]);
     return result.rows[0];
   }
 
-  static async deleteSincronizacion(id) {
+  static async activarModoAutomatico(id) {
     const query = `
-      DELETE FROM sincronizacion_grupos
+      UPDATE grupos_semaforos
+      SET modo_automatico = TRUE
       WHERE id = $1
-      RETURNING id
+      RETURNING *
     `;
     const result = await db.query(query, [id]);
     return result.rows[0];
